@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel İçe Aktarma — Test</title>
+<style>
+  :root {
+    --ink:#1a1614; --ink-soft:#5c534d; --ink-faint:#9a8f86;
+    --paper:#f7f4ef; --card:#fffdfa; --line:#e6ded4; --line-strong:#d4c8ba;
+    --brand:#b8562f; --brand-deep:#8f3d1d; --brand-tint:#f6e9e1;
+    --ok:#4a7c59; --ok-tint:#e8f0e8; --danger:#a32d1e; --danger-tint:#f8e2de;
+    --shadow:0 1px 2px rgba(26,22,20,.04), 0 8px 24px rgba(26,22,20,.06);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',-apple-system,system-ui,sans-serif; background:var(--paper); color:var(--ink); line-height:1.5; padding:32px 20px; }
+  .wrap { max-width:640px; margin:0 auto; }
+  h1 { font-size:20px; font-weight:800; margin-bottom:4px; }
+  .sub { color:var(--ink-soft); font-size:14px; margin-bottom:24px; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:22px; margin-bottom:16px; }
+
+  /* Dosya bırakma alanı */
+  .drop { border:2px dashed var(--line-strong); border-radius:12px; padding:32px 20px; text-align:center; cursor:pointer; transition:all .15s; }
+  .drop:hover, .drop.over { border-color:var(--brand); background:var(--brand-tint); }
+  .drop svg { color:var(--ink-faint); margin-bottom:8px; }
+  .drop strong { display:block; font-size:15px; color:var(--ink); margin-bottom:3px; }
+  .drop span { font-size:13px; color:var(--ink-faint); }
+  input[type=file] { display:none; }
+
+  /* Kolon eşleştirme */
+  .maprow { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:center; margin-bottom:10px; }
+  .maprow label { font-size:13px; font-weight:600; color:var(--ink-soft); }
+  select { width:100%; padding:9px 11px; border:1px solid var(--line-strong); border-radius:9px; font:inherit; background:var(--card); color:var(--ink); outline:none; }
+  select:focus { border-color:var(--brand); }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th { text-align:left; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--ink-faint); padding:8px 10px; border-bottom:1px solid var(--line); }
+  td { padding:8px 10px; border-bottom:1px solid var(--line); }
+  tr:last-child td { border-bottom:none; }
+
+  .btn { padding:11px 18px; border:none; border-radius:10px; background:linear-gradient(135deg,var(--brand),var(--brand-deep)); color:#fff; font:inherit; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(184,86,47,.28); }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .btn-ghost { background:none; color:var(--ink-soft); border:1px solid var(--line-strong); box-shadow:none; font-weight:600; }
+  .actions { display:flex; gap:10px; margin-top:16px; }
+
+  .msg { padding:12px 14px; border-radius:10px; font-size:13.5px; margin-top:14px; }
+  .msg.ok { background:var(--ok-tint); color:var(--ok); }
+  .msg.err { background:var(--danger-tint); color:var(--danger); }
+  .hidden { display:none; }
+  .note { font-size:12px; color:var(--ink-faint); margin-top:10px; }
+  h2 { font-size:15px; font-weight:800; margin-bottom:12px; }
+  .count { font-weight:700; color:var(--brand-deep); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Excel / CSV İçe Aktarma</h1>
+  <p class="sub">Müşterinin ürün listesini tek seferde deposuna yükle. (Bu ayrı test sayfası — çalıştığını görünce ana uygulamaya ekleriz.)</p>
+
+  <!-- 1. Dosya seç -->
+  <div class="card" id="step1">
+    <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+      <strong>Excel veya CSV dosyası seç</strong>
+      <span>.xlsx, .xls veya .csv — tıkla ya da sürükle bırak</span>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" onchange="dosyaSecildi(event)">
+  </div>
+
+  <!-- 2. Kolon eşleştir -->
+  <div class="card hidden" id="step2">
+    <h2>Kolonları eşleştir</h2>
+    <p class="note" style="margin-top:0;margin-bottom:14px;">Sistem tahmin etti; yanlışsa düzelt. Sadece "Ürün adı" zorunlu.</p>
+    <div class="maprow"><label>Ürün adı <span style="color:var(--danger)">*</span></label><select id="map_ad"></select></div>
+    <div class="maprow"><label>Stok kodu</label><select id="map_kod"></select></div>
+    <div class="maprow"><label>Miktar</label><select id="map_miktar"></select></div>
+    <div class="maprow"><label>Birim</label><select id="map_birim"></select></div>
+    <div class="maprow"><label>Konum</label><select id="map_konum"></select></div>
+    <div class="maprow"><label>Kritik seviye</label><select id="map_kritik"></select></div>
+    <div class="actions">
+      <button class="btn" onclick="onizle()">Önizlemeyi göster</button>
+      <button class="btn-ghost btn" onclick="sifirla()">Vazgeç</button>
+    </div>
+  </div>
+
+  <!-- 3. Önizle + onayla -->
+  <div class="card hidden" id="step3">
+    <h2><span class="count" id="adet">0</span> ürün eklenecek</h2>
+    <p class="note" style="margin-top:0;margin-bottom:8px;">İlk birkaç satır (kontrol için):</p>
+    <table id="preview"></table>
+    <div class="actions">
+      <button class="btn" id="onayBtn" onclick="iceAktar()">Deposuna ekle</button>
+      <button class="btn-ghost btn" onclick="sifirla()">Vazgeç</button>
+    </div>
+    <div id="sonuc"></div>
+  </div>
+</div>
+
+<!-- Excel okuma kütüphanesi (SheetJS) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// --- Kendi projenin değerleri ---
+const PROJE_URL = 'https://zyqebkbnlvdppckxmsps.supabase.co';
+const ANON_KEY  = 'sb_publishable_LyaDwzMBIa4sOc3jjTXsqQ_ZS6Av3Z0';
+const sb = createClient(PROJE_URL, ANON_KEY);
+
+let satirlar = [];      // Excel'den okunan ham satırlar
+let basliklar = [];     // Excel'in kolon başlıkları
+let hazirVeri = [];     // eşleştirilmiş, eklenmeye hazır ürünler
+
+Object.assign(window, { dosyaSecildi, onizle, iceAktar, sifirla });
+
+// Yaygın kolon isimleri — otomatik tahmin için
+const ipuclari = {
+  ad:     ['ad','adı','isim','ürün','urun','ürün adı','malzeme','stok adı','stok ismi','name','açıklama','aciklama','tanım'],
+  kod:    ['kod','kodu','stok kodu','stok kod','barkod','sku','ürün kodu','malzeme kodu','code'],
+  miktar: ['miktar','adet','stok','stok miktarı','quantity','qty','mevcut','kalan'],
+  birim:  ['birim','ölçü','olcu','unit','br'],
+  konum:  ['konum','yer','raf','depo','lokasyon','location','bölge'],
+  kritik: ['kritik','kritik seviye','minimum','min','alarm','eşik','esik'],
+};
+
+function tahminEt(hedef) {
+  const kelimeler = ipuclari[hedef];
+  for (const b of basliklar) {
+    const temiz = String(b).toLowerCase().trim();
+    if (kelimeler.some(k => temiz === k || temiz.includes(k))) return b;
+  }
+  return '';
+}
+
+function dosyaSecildi(e) {
+  const dosya = e.target.files[0];
+  if (!dosya) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const data = new Uint8Array(evt.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const ilkSayfa = workbook.Sheets[workbook.SheetNames[0]];
+    satirlar = XLSX.utils.sheet_to_json(ilkSayfa, { defval: '' });
+    if (satirlar.length === 0) { alert('Dosya boş görünüyor.'); return; }
+    basliklar = Object.keys(satirlar[0]);
+    kolonlariDoldur();
+    document.getElementById('step1').classList.add('hidden');
+    document.getElementById('step2').classList.remove('hidden');
+  };
+  reader.readAsArrayBuffer(dosya);
+}
+
+function kolonlariDoldur() {
+  const alanlar = ['ad','kod','miktar','birim','konum','kritik'];
+  alanlar.forEach(alan => {
+    const sel = document.getElementById('map_' + alan);
+    sel.innerHTML = '<option value="">— yok —</option>' +
+      basliklar.map(b => `<option value="${b}">${b}</option>`).join('');
+    sel.value = tahminEt(alan);  // otomatik tahmin
+  });
+}
+
+function onizle() {
+  const map = {
+    ad: document.getElementById('map_ad').value,
+    kod: document.getElementById('map_kod').value,
+    miktar: document.getElementById('map_miktar').value,
+    birim: document.getElementById('map_birim').value,
+    konum: document.getElementById('map_konum').value,
+    kritik: document.getElementById('map_kritik').value,
+  };
+  if (!map.ad) { alert('Ürün adı kolonu zorunlu — lütfen seç.'); return; }
+
+  hazirVeri = satirlar
+    .map(s => ({
+      ad: String(s[map.ad] ?? '').trim(),
+      stok_kodu: map.kod ? String(s[map.kod] ?? '').trim() : '',
+      miktar: map.miktar ? (parseFloat(s[map.miktar]) || 0) : 0,
+      birim: map.birim ? String(s[map.birim] ?? 'adet').trim() : 'adet',
+      konum: map.konum ? String(s[map.konum] ?? '').trim() : '',
+      kritik_seviye: map.kritik ? (parseFloat(s[map.kritik]) || 0) : 0,
+    }))
+    .filter(u => u.ad); // adı boş olan satırları atla
+
+  document.getElementById('adet').textContent = hazirVeri.length;
+  const tbl = document.getElementById('preview');
+  const ilk5 = hazirVeri.slice(0, 5);
+  tbl.innerHTML =
+    '<tr><th>Ad</th><th>Kod</th><th>Miktar</th><th>Birim</th><th>Konum</th></tr>' +
+    ilk5.map(u => `<tr><td>${esc(u.ad)}</td><td>${esc(u.stok_kodu)}</td><td>${u.miktar}</td><td>${esc(u.birim)}</td><td>${esc(u.konum)}</td></tr>`).join('');
+
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.remove('hidden');
+}
+
+async function iceAktar() {
+  const btn = document.getElementById('onayBtn');
+  const sonuc = document.getElementById('sonuc');
+  btn.disabled = true; btn.textContent = 'Ekleniyor…';
+
+  // Giriş yapan kullanıcının firma_id'sini bul
+  const { data: kul, error: kulHata } = await sb.from('kullanicilar').select('firma_id').single();
+  if (kulHata || !kul) {
+    sonuc.innerHTML = '<div class="msg err">Firma bulunamadı. Önce giriş yapmış olman gerekiyor.</div>';
+    btn.disabled = false; btn.textContent = 'Deposuna ekle';
+    return;
+  }
+
+  // Her ürüne firma_id ekle (RLS zaten zorluyor ama açıkça ekliyoruz)
+  const eklenecek = hazirVeri.map(u => ({ ...u, firma_id: kul.firma_id }));
+
+  // Toplu ekle
+  const { error } = await sb.from('urunler').insert(eklenecek);
+  if (error) {
+    sonuc.innerHTML = `<div class="msg err">Hata: ${error.message}</div>`;
+    btn.disabled = false; btn.textContent = 'Deposuna ekle';
+    return;
+  }
+
+  sonuc.innerHTML = `<div class="msg ok">✓ ${eklenecek.length} ürün deposuna eklendi.</div>`;
+  btn.textContent = 'Eklendi ✓';
+}
+
+function sifirla() {
+  satirlar = []; basliklar = []; hazirVeri = [];
+  document.getElementById('file').value = '';
+  document.getElementById('sonuc').innerHTML = '';
+  document.getElementById('onayBtn').disabled = false;
+  document.getElementById('onayBtn').textContent = 'Deposuna ekle';
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.add('hidden');
+  document.getElementById('step1').classList.remove('hidden');
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// Sürükle-bırak
+const drop = document.getElementById('drop');
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => {
+  const dosya = e.dataTransfer.files[0];
+  if (dosya) { document.getElementById('file').files = e.dataTransfer.files; dosyaSecildi({ target: { files: [dosya] } }); }
+});
+</script>
+</body>
+</html>
