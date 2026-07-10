@@ -96,6 +96,7 @@
 const PROJE_URL = 'https://zyqebkbnlvdppckxmsps.supabase.co';
 const ANON_KEY  = 'sb_publishable_LyaDwzMBIa4sOc3jjTXsqQ_ZS6Av3Z0';
 const FONKSIYON = PROJE_URL + '/functions/v1/yeni-musteri';
+const SITE_ADRESI = 'https://stok-panom.netlify.app';  // müşterinin giriş yapacağı adres
 
 let adminParola = '';
 
@@ -140,7 +141,7 @@ async function olustur() {
     } else {
       showMsg('ok',
         `✓ "${data.firma}" oluşturuldu. Müşteriye şu bilgileri ver:`,
-        `E-posta: ${eposta}\nŞifre: ${sifre}\nGiriş adresi: ${PROJE_URL.replace('.supabase.co','')} panosu`
+        `E-posta: ${eposta}\nŞifre: ${sifre}\nGiriş adresi: ${SITE_ADRESI}`
       );
       // Formu temizle (bir sonraki müşteri için)
       document.getElementById('firmaAd').value = '';
